@@ -112,8 +112,8 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
 <div><label>Tanggal</label><input id="tDate" type="date"></div><div><label>Customer</label><select id="tCustomer"></select></div><div><label>Nopol</label><input id="tPlate" readonly></div>
 <div><label>Jenis Layanan</label><select id="tService"></select></div><div><label>Pemasukan</label><input id="tIn" type="number" min="0" value="0"></div><div><label>Pengeluaran</label><input id="tOut" type="number" min="0" value="0"></div>
 <div><label>Status</label><select id="tStatus"><option>Lunas</option><option>Belum Lunas</option><option>Proses</option><option>Selesai</option></select></div><div><label>Keterangan</label><input id="tNote"></div>
-</div><br><button class="primary" onclick="addTransaction()">Simpan Transaksi</button></div>
-<div class="panel"><table><thead><tr><th>Tanggal</th><th>Nopol</th><th>Customer</th><th>Layanan</th><th>Masuk</th><th>Keluar</th><th>Profit</th><th>70%</th><th>30%</th><th>Status</th></tr></thead><tbody id="trxTable"></tbody></table></div>
+</div><br><button class="primary" id="trxSaveBtn" onclick="saveTransaction()">Simpan Transaksi</button> <button class="no-print" id="trxCancelBtn" style="display:none;background:#6b7280;color:#fff;border:0;padding:10px 16px;border-radius:6px;cursor:pointer" onclick="cancelEditTransaction()">Batal Edit</button></div>
+<div class="panel"><div style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Nopol</th><th>Customer</th><th>Layanan</th><th>Masuk</th><th>Keluar</th><th>Profit</th><th>70%</th><th>30%</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="trxTable"></tbody></table></div></div>
 </section>
 
 <section id="reminders" class="page"><h2>Reminder Pajak Kendaraan</h2>
@@ -293,7 +293,55 @@ function fillServices(){["tService","iService"].forEach(id=>document.getElementB
 function fillCustomers(){let opts='<option value="">-- pilih customer --</option>'+db.customers.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.plate)}</option>`).join("");["tCustomer","iCustomer"].forEach(id=>document.getElementById(id).innerHTML=opts)}
 function addCustomer(){let c={id:Date.now(),name:cName.value.trim(),phone:cPhone.value.trim(),plate:cPlate.value.trim().toUpperCase(),vehicle:cVehicle.value,tax:cTax.value,note:cNote.value};if(!c.name||!c.plate){alert("Nama dan Nopol wajib diisi");return}db.customers.push(c);["cName","cPhone","cPlate","cTax","cNote"].forEach(id=>document.getElementById(id).value="");save()}
 function delCustomer(id){if(confirm("Hapus customer?")){db.customers=db.customers.filter(c=>c.id!=id);save()}}
-function addTransaction(){let cust=db.customers.find(c=>c.id==tCustomer.value);let x={id:Date.now(),date:tDate.value||new Date().toISOString().slice(0,10),customer:cust?.name||"",phone:cust?.phone||"",plate:cust?.plate||"",service:tService.value,inc:+tIn.value,out:+tOut.value,status:tStatus.value,note:tNote.value};if(!x.customer){alert("Pilih customer");return}db.transactions.push(x);save();alert("Transaksi tersimpan")}
+let editingTrxId=null;
+function saveTransaction(){
+  let cust=db.customers.find(c=>c.id==tCustomer.value);
+  if(!cust){alert("Pilih customer");return}
+  let payload={date:tDate.value||new Date().toISOString().slice(0,10),customer:cust.name,phone:cust.phone,plate:cust.plate,service:tService.value,inc:+tIn.value,out:+tOut.value,status:tStatus.value,note:tNote.value};
+  if(editingTrxId){
+    let idx=db.transactions.findIndex(x=>x.id===editingTrxId);
+    if(idx>-1) db.transactions[idx]={...db.transactions[idx],...payload};
+    editingTrxId=null;
+    trxSaveBtn.textContent="Simpan Transaksi";
+    trxCancelBtn.style.display="none";
+    save();
+    alert("Transaksi berhasil diperbarui");
+  }else{
+    db.transactions.push({id:Date.now(),...payload});
+    save();
+    alert("Transaksi tersimpan");
+  }
+  tPlate.value="";tIn.value=0;tOut.value=0;tNote.value="";tCustomer.value="";tStatus.value="Lunas";
+}
+function editTransaction(id){
+  let x=db.transactions.find(x=>x.id===id);
+  if(!x)return;
+  editingTrxId=id;
+  tDate.value=x.date;
+  let cust=db.customers.find(c=>c.name===x.customer&&c.plate===x.plate);
+  tCustomer.value=cust?cust.id:"";
+  tPlate.value=x.plate||"";
+  tService.value=x.service;
+  tIn.value=x.inc;
+  tOut.value=x.out;
+  tStatus.value=x.status;
+  tNote.value=x.note||"";
+  trxSaveBtn.textContent="Update Transaksi";
+  trxCancelBtn.style.display="inline-block";
+  document.getElementById("transactions").scrollIntoView({behavior:"smooth"});
+}
+function cancelEditTransaction(){
+  editingTrxId=null;
+  tDate.value="";tCustomer.value="";tPlate.value="";tIn.value=0;tOut.value=0;tNote.value="";tStatus.value="Lunas";
+  trxSaveBtn.textContent="Simpan Transaksi";
+  trxCancelBtn.style.display="none";
+}
+function deleteTransaction(id){
+  if(!confirm("Hapus transaksi ini? Tindakan ini tidak bisa dibatalkan."))return;
+  db.transactions=db.transactions.filter(x=>x.id!==id);
+  if(editingTrxId===id) cancelEditTransaction();
+  save();
+}
 function daysTo(d){return Math.ceil((new Date(d+"T00:00:00")-new Date(new Date().toISOString().slice(0,10)+"T00:00:00"))/86400000)}
 function render(){let inc=db.transactions.reduce((a,x)=>a+x.inc,0),out=db.transactions.reduce((a,x)=>a+x.out,0),p=inc-out;
 let totalTaken=db.withdrawals.reduce((a,x)=>a+x.amount,0), personal=p*.3, available=personal-totalTaken;
@@ -305,7 +353,7 @@ if(document.getElementById("d70b")) d70b.textContent=rupiah(p*.7);
 if(document.getElementById("d30b")) d30b.textContent=rupiah(personal);
 dCust.textContent=db.customers.length;dRem.textContent=db.customers.filter(c=>c.tax&&daysTo(c.tax)<=30).length;
 custTable.innerHTML=db.customers.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.plate)}</td><td>${esc(c.vehicle)}</td><td>${c.tax||"-"}</td><td><button class="danger" onclick="delCustomer(${c.id})">Hapus</button></td></tr>`).join("");
-trxTable.innerHTML=db.transactions.slice().reverse().map(x=>{let p=x.inc-x.out;return `<tr><td>${x.date}</td><td>${esc(x.plate)}</td><td>${esc(x.customer)}</td><td>${esc(x.service)}</td><td>${rupiah(x.inc)}</td><td>${rupiah(x.out)}</td><td>${rupiah(p)}</td><td>${rupiah(p*.7)}</td><td>${rupiah(p*.3)}</td><td>${esc(x.status)}</td></tr>`}).join("");
+trxTable.innerHTML=db.transactions.slice().reverse().map(x=>{let p=x.inc-x.out;return `<tr><td>${x.date}</td><td>${esc(x.plate)}</td><td>${esc(x.customer)}</td><td>${esc(x.service)}</td><td>${rupiah(x.inc)}</td><td>${rupiah(x.out)}</td><td>${rupiah(p)}</td><td>${rupiah(p*.7)}</td><td>${rupiah(p*.3)}</td><td>${esc(x.status)}</td><td style="white-space:nowrap"><button onclick="editTransaction(${x.id})">Edit</button> <button class="danger" onclick="deleteTransaction(${x.id})">Hapus</button></td></tr>`}).join("")||`<tr><td colspan="11">Belum ada transaksi.</td></tr>`;
 remTable.innerHTML=db.customers.filter(c=>c.tax&&daysTo(c.tax)<=30).sort((a,b)=>daysTo(a.tax)-daysTo(b.tax)).map(c=>{let d=daysTo(c.tax), cls=d<0?"late":d<=7?"warn":"ok", st=d<0?"Lewat "+Math.abs(d)+" hari":d==0?"JATUH TEMPO":"H-"+d;let msg=encodeURIComponent(`Halo ${c.name}, mengingatkan bahwa pajak kendaraan ${c.plate} jatuh tempo pada ${c.tax}. Silakan hubungi kami untuk pengurusan. Terima kasih.`);return `<tr><td>${esc(c.plate)}</td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${c.tax}</td><td><span class="badge ${cls}">${st}</span></td><td><a target="_blank" href="https://wa.me/${(c.phone||"").replace(/[^0-9]/g,"").replace(/^0/,"62")}?text=${msg}">WhatsApp</a></td></tr>`}).join("");
 wTable.innerHTML=db.withdrawals.slice().reverse().map(x=>`<tr><td>${x.date}</td><td>${rupiah(x.amount)}</td><td>${esc(x.note)}</td><td><button class="danger" onclick="delWithdrawal(${x.id})">Hapus</button></td></tr>`).join("");
 if(document.getElementById("wDate")&&!wDate.value) wDate.value=new Date().toISOString().slice(0,10);
