@@ -228,34 +228,53 @@ function onCloudReady(){
 
 fauth.signInAnonymously().catch(err=>{console.error("Auth error:",err);setSyncStatus("error")});
 
-DOC_REF.onSnapshot(snap=>{
-  if(snap.exists){
-    const data=snap.data();
-    db={...defaultDB(),...data};
-    if(!db.withdrawals) db.withdrawals=[];
-    if(!db.auth) db.auth={user:"admin",pass:"biro2026"};
-    persistLocalCache();
-  }else{
-    DOC_REF.set(db).catch(err=>console.error(err));
-  }
-  setSyncStatus(snap.metadata.fromCache?"offline":"synced");
-  if(!firstSnapshotHandled){
-    firstSnapshotHandled=true;
-    onCloudReady();
-    if(sessionStorage.getItem("biroJasaAuthed")==="1"){showApp()}else{loginUser.focus()}
-  }else if(document.getElementById("appMain").style.display!=="none"){
-    render();
-  }
-},err=>{
-  console.error("Snapshot error:",err);
-  setSyncStatus("error");
-  if(!firstSnapshotHandled){firstSnapshotHandled=true;onCloudReady();loginUser.focus()}
+let listenersAttached=false;
+fauth.onAuthStateChanged(user=>{
+  if(!user||listenersAttached)return;
+  listenersAttached=true;
+  attachCloudListeners();
 });
 
-LOGO_REF.onSnapshot(snap=>{
-  currentLogo=snap.exists?snap.data().image:null;
-  if(document.getElementById("appMain").style.display!=="none") renderLogo();
-},err=>console.error("Logo snapshot error:",err));
+function attachCloudListeners(){
+  DOC_REF.onSnapshot(snap=>{
+    if(snap.exists){
+      const data=snap.data();
+      db={...defaultDB(),...data};
+      if(!db.withdrawals) db.withdrawals=[];
+      if(!db.auth) db.auth={user:"admin",pass:"biro2026"};
+      persistLocalCache();
+    }else{
+      DOC_REF.set(db).catch(err=>console.error(err));
+    }
+    setSyncStatus(snap.metadata.fromCache?"offline":"synced");
+    if(!firstSnapshotHandled){
+      firstSnapshotHandled=true;
+      onCloudReady();
+      if(sessionStorage.getItem("biroJasaAuthed")==="1"){showApp()}else{loginUser.focus()}
+    }else if(document.getElementById("appMain").style.display!=="none"){
+      render();
+    }
+  },err=>{
+    console.error("Snapshot error:",err);
+    setSyncStatus("error");
+    if(!firstSnapshotHandled){firstSnapshotHandled=true;onCloudReady();loginUser.focus()}
+  });
+
+  LOGO_REF.onSnapshot(snap=>{
+    currentLogo=snap.exists?snap.data().image:null;
+    if(document.getElementById("appMain").style.display!=="none") renderLogo();
+  },err=>console.error("Logo snapshot error:",err));
+}
+
+// Safety net: if auth/network never resolves, stop blocking the login screen after 8s.
+setTimeout(()=>{
+  if(!firstSnapshotHandled){
+    firstSnapshotHandled=true;
+    setSyncStatus("error");
+    onCloudReady();
+    loginUser.focus();
+  }
+},8000);
 
 window.addEventListener("online",()=>setSyncStatus("synced"));
 window.addEventListener("offline",()=>setSyncStatus("offline"));

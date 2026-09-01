@@ -1,4 +1,4 @@
-const CACHE_NAME = "biro-jasa-cache-v2";
+const CACHE_NAME = "biro-jasa-cache-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
