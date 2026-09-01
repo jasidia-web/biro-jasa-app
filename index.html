@@ -61,13 +61,14 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
     <label>Password</label>
     <input id="loginPass" type="password" autocomplete="off" autocapitalize="off" autocorrect="off">
     <div id="loginError">Username atau password salah.</div>
-    <button type="submit">Masuk</button>
+    <button type="submit" id="loginSubmitBtn" disabled>Masuk</button>
+    <p class="loginHint" id="loginLoading">⏳ Memuat data dari server...</p>
     <p class="loginHint">Default: <b>admin</b> / <b>biro2026</b> — ganti di menu Pengaturan setelah masuk.</p>
   </form>
 </div>
 
 <div id="appMain" style="display:none">
-<header><img id="logoImg" style="display:none;height:56px;width:56px;object-fit:cover;border-radius:8px;margin-right:14px;vertical-align:middle;background:#fff"><h1 id="appName" style="display:inline-block;vertical-align:middle">BIRO JASA — KEUANGAN</h1><span>Offline • Data tersimpan di browser <button id="installBtn" class="no-print" style="display:none;background:#22c55e;border:0;color:#0b1f13;font-weight:bold;padding:6px 12px;border-radius:6px;cursor:pointer;margin-left:10px" onclick="installApp()">⬇️ Install App</button><button id="logoutBtn" class="no-print" onclick="doLogout()">Keluar</button></span></header>
+<header><img id="logoImg" style="display:none;height:56px;width:56px;object-fit:cover;border-radius:8px;margin-right:14px;vertical-align:middle;background:#fff"><h1 id="appName" style="display:inline-block;vertical-align:middle">BIRO JASA — KEUANGAN</h1><span><span id="syncStatus" style="font-size:13px">⏳ Menghubungkan...</span> <button id="installBtn" class="no-print" style="display:none;background:#22c55e;border:0;color:#0b1f13;font-weight:bold;padding:6px 12px;border-radius:6px;cursor:pointer;margin-left:10px" onclick="installApp()">⬇️ Install App</button><button id="logoutBtn" class="no-print" onclick="doLogout()">Keluar</button></span></header>
 <div class="wrap">
 <nav>
 <button class="active" onclick="show('dashboard',this)">📊 Dashboard</button>
@@ -156,7 +157,7 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
 <div class="panel no-print"><button class="primary" onclick="window.print()">🖨️ Cetak Laporan / Simpan PDF</button></div></section>
 
 <section id="settings" class="page"><h2>Pengaturan</h2>
-<div class="panel"><h3>Logo Usaha</h3><p class="muted">Logo akan tampil di header dan di invoice. Format gambar (PNG/JPG), ukuran disarankan persegi dan di bawah 1MB.</p>
+<div class="panel"><h3>Logo Usaha</h3><p class="muted">Logo akan tampil di header dan di invoice. Format gambar (PNG/JPG), disarankan persegi dan di bawah 500KB supaya sinkron cepat ke server.</p>
 <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
 <img id="logoPreview" style="display:none;height:80px;width:80px;object-fit:cover;border-radius:10px;border:1px solid #d1d5db">
 <div><input type="file" id="logoInput" accept="image/*" onchange="uploadLogo(event)"><br><button class="danger" style="margin-top:8px" onclick="removeLogo()">Hapus Logo</button></div>
@@ -167,16 +168,107 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script>
 const cargo=["Kirim Motor","Kirim Mobil","Cargo","Asuransi Cargo"];
 const biro=["Perpanjangan 1 Tahun","Perpanjangan 5 Tahun","STNK Hilang","Balik Nama","Mutasi","Mutasi + Balik Nama","Blokir Jual","Nopil","Layanan Lainnya"];
 const services=[...cargo,...biro];
-let db=JSON.parse(localStorage.getItem("biroJasaDB")||'{"customers":[],"transactions":[],"withdrawals":[],"settings":{"name":"BIRO JASA","owner":"","phone":"","address":""}}');
+
+// ====== FIREBASE CLOUD SYNC ======
+const firebaseConfig={
+  apiKey:"AIzaSyAjnYLxw_7qSgdlfsg_PDGODgpgg90PqQ",
+  authDomain:"biro-jasa-dia.firebaseapp.com",
+  projectId:"biro-jasa-dia",
+  storageBucket:"biro-jasa-dia.firebasestorage.app",
+  messagingSenderId:"519770800879",
+  appId:"1:519770800879:web:d96d681740a3fa124c911a",
+  measurementId:"G-6Z1BJT6BGN"
+};
+firebase.initializeApp(firebaseConfig);
+const fauth=firebase.auth();
+const fsdb=firebase.firestore();
+fsdb.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+const DOC_REF=fsdb.collection("biroJasa").doc("data");
+const LOGO_REF=fsdb.collection("biroJasa").doc("logo");
+
+function defaultDB(){
+  return {customers:[],transactions:[],withdrawals:[],settings:{name:"BIRO JASA",owner:"",phone:"",address:""},auth:{user:"admin",pass:"biro2026"}};
+}
+let db=defaultDB();
+try{
+  const cached=localStorage.getItem("biroJasaDB_cache");
+  if(cached) db=JSON.parse(cached);
+}catch(e){}
 if(!db.withdrawals) db.withdrawals=[];
 if(!db.auth) db.auth={user:"admin",pass:"biro2026"};
+
+let currentLogo=null;
+let cloudReady=false;
+let firstSnapshotHandled=false;
+
+function setSyncStatus(status){
+  const el=document.getElementById("syncStatus");
+  if(!el)return;
+  const map={connecting:"⏳ Menghubungkan...",synced:"☁️ Tersimpan online",saving:"⏳ Menyimpan...",offline:"📴 Offline (akan sinkron otomatis)",error:"⚠️ Gagal sinkron, cek koneksi"};
+  el.textContent=map[status]||status;
+}
+
+function persistLocalCache(){
+  try{localStorage.setItem("biroJasaDB_cache",JSON.stringify(db))}catch(e){}
+}
+
+function onCloudReady(){
+  cloudReady=true;
+  const btn=document.getElementById("loginSubmitBtn"), msg=document.getElementById("loginLoading");
+  if(btn) btn.disabled=false;
+  if(msg) msg.style.display="none";
+}
+
+fauth.signInAnonymously().catch(err=>{console.error("Auth error:",err);setSyncStatus("error")});
+
+DOC_REF.onSnapshot(snap=>{
+  if(snap.exists){
+    const data=snap.data();
+    db={...defaultDB(),...data};
+    if(!db.withdrawals) db.withdrawals=[];
+    if(!db.auth) db.auth={user:"admin",pass:"biro2026"};
+    persistLocalCache();
+  }else{
+    DOC_REF.set(db).catch(err=>console.error(err));
+  }
+  setSyncStatus(snap.metadata.fromCache?"offline":"synced");
+  if(!firstSnapshotHandled){
+    firstSnapshotHandled=true;
+    onCloudReady();
+    if(sessionStorage.getItem("biroJasaAuthed")==="1"){showApp()}else{loginUser.focus()}
+  }else if(document.getElementById("appMain").style.display!=="none"){
+    render();
+  }
+},err=>{
+  console.error("Snapshot error:",err);
+  setSyncStatus("error");
+  if(!firstSnapshotHandled){firstSnapshotHandled=true;onCloudReady();loginUser.focus()}
+});
+
+LOGO_REF.onSnapshot(snap=>{
+  currentLogo=snap.exists?snap.data().image:null;
+  if(document.getElementById("appMain").style.display!=="none") renderLogo();
+},err=>console.error("Logo snapshot error:",err));
+
+window.addEventListener("online",()=>setSyncStatus("synced"));
+window.addEventListener("offline",()=>setSyncStatus("offline"));
+// ====== END FIREBASE CLOUD SYNC ======
+
 const rupiah=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-function save(){localStorage.setItem("biroJasaDB",JSON.stringify(db));render();}
+function save(){
+  render();
+  persistLocalCache();
+  setSyncStatus("saving");
+  DOC_REF.set(db).then(()=>setSyncStatus(navigator.onLine?"synced":"offline")).catch(err=>{console.error(err);setSyncStatus("error")});
+}
 function show(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn?.classList.add("active");render();}
 function fillServices(){["tService","iService"].forEach(id=>document.getElementById(id).innerHTML=services.map(x=>`<option>${x}</option>`).join(""))}
 function fillCustomers(){let opts='<option value="">-- pilih customer --</option>'+db.customers.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.plate)}</option>`).join("");["tCustomer","iCustomer"].forEach(id=>document.getElementById(id).innerHTML=opts)}
@@ -204,7 +296,7 @@ if(document.getElementById("reportTahunView")&&reportTahunView.style.display!=="
 recent.innerHTML=db.transactions.slice(-8).reverse().map(x=>`<p><b>${x.date}</b> — ${esc(x.customer)} — ${esc(x.service)} — ${rupiah(x.inc-x.out)}</p>`).join("")||"<p>Belum ada transaksi.</p>";
 appName.textContent=(db.settings.name||"BIRO JASA")+" — KEUANGAN";sName.value=db.settings.name;sOwner.value=db.settings.owner;sPhone.value=db.settings.phone;sAddress.value=db.settings.address;fillCustomers();fillServices();renderLogo()}
 function renderLogo(){
-  const logo=db.settings.logo;
+  const logo=currentLogo;
   [document.getElementById("logoImg"),document.getElementById("logoPreview")].forEach(img=>{
     if(!img)return;
     if(logo){img.src=logo;img.style.display="inline-block"}else{img.style.display="none"}
@@ -214,27 +306,32 @@ function uploadLogo(e){
   const file=e.target.files&&e.target.files[0];
   if(!file)return;
   if(!file.type.startsWith("image/")){logoMsg.textContent="File harus berupa gambar.";logoMsg.style.color="#b91c1c";return}
-  if(file.size>1500000){logoMsg.textContent="Ukuran file terlalu besar (maks ±1.5MB).";logoMsg.style.color="#b91c1c";return}
+  if(file.size>700000){logoMsg.textContent="Ukuran file terlalu besar (maks ±700KB).";logoMsg.style.color="#b91c1c";return}
   const reader=new FileReader();
   reader.onload=()=>{
-    db.settings.logo=reader.result;
-    try{
-      localStorage.setItem("biroJasaDB",JSON.stringify(db));
-      renderLogo();
+    currentLogo=reader.result;
+    renderLogo();
+    logoMsg.textContent="Menyimpan logo...";logoMsg.style.color="#6b7280";
+    LOGO_REF.set({image:reader.result}).then(()=>{
       logoMsg.textContent="Logo berhasil disimpan.";logoMsg.style.color="#15803d";
-    }catch(err){
-      logoMsg.textContent="Gagal menyimpan logo (mungkin terlalu besar). Coba gambar yang lebih kecil.";logoMsg.style.color="#b91c1c";
-      delete db.settings.logo;
-    }
+    }).catch(err=>{
+      console.error(err);
+      logoMsg.textContent="Gagal menyimpan logo ke server. Coba gambar yang lebih kecil atau cek koneksi.";logoMsg.style.color="#b91c1c";
+    });
   };
   reader.readAsDataURL(file);
 }
 function removeLogo(){
-  delete db.settings.logo;
-  localStorage.setItem("biroJasaDB",JSON.stringify(db));
+  currentLogo=null;
   logoInput.value="";
   renderLogo();
-  logoMsg.textContent="Logo dihapus.";logoMsg.style.color="#6b7280";
+  logoMsg.textContent="Menghapus logo...";logoMsg.style.color="#6b7280";
+  LOGO_REF.delete().then(()=>{
+    logoMsg.textContent="Logo dihapus.";logoMsg.style.color="#6b7280";
+  }).catch(err=>{
+    console.error(err);
+    logoMsg.textContent="Gagal menghapus logo di server.";logoMsg.style.color="#b91c1c";
+  });
 }
 function saveSettings(){db.settings={...db.settings,name:sName.value,owner:sOwner.value,phone:sPhone.value,address:sAddress.value};save();alert("Pengaturan tersimpan")}
 function addWithdrawal(){let amount=+wAmount.value||0;let inc=db.transactions.reduce((a,x)=>a+x.inc,0),out=db.transactions.reduce((a,x)=>a+x.out,0),available=(inc-out)*.3-db.withdrawals.reduce((a,x)=>a+x.amount,0);if(amount<=0){alert("Jumlah pengambilan harus lebih dari 0");return}if(amount>available){alert("Pengambilan melebihi saldo pribadi 30% yang tersedia.");return}db.withdrawals.push({id:Date.now(),date:wDate.value||new Date().toISOString().slice(0,10),amount,note:wNote.value});wAmount.value=0;wNote.value="";save();alert("Pengambilan pribadi tersimpan")}
@@ -321,10 +418,15 @@ function drawProfitChart(canvasId,key,labels,incData,outData,profitData){
   });
 }
 
-function makeInvoice(){let c=db.customers.find(c=>c.id==iCustomer.value);let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10), amount=+iAmount.value;let logoTag=db.settings.logo?`<img src="${db.settings.logo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}</p><p><b>Customer:</b> ${esc(c?.name||"")}<br><b>Kontak:</b> ${esc(c?.phone||"")}<br><b>Nopol:</b> ${esc(iPlate.value||c?.plate||"")}</p><table><tr><th>Layanan</th><th>Jumlah</th></tr><tr><td>${esc(iService.value)}</td><td>${rupiah(amount)}</td></tr></table><p class="invoice-total">TOTAL: ${rupiah(amount)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`}
+function makeInvoice(){let c=db.customers.find(c=>c.id==iCustomer.value);let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10), amount=+iAmount.value;let logoTag=currentLogo?`<img src="${currentLogo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}</p><p><b>Customer:</b> ${esc(c?.name||"")}<br><b>Kontak:</b> ${esc(c?.phone||"")}<br><b>Nopol:</b> ${esc(iPlate.value||c?.plate||"")}</p><table><tr><th>Layanan</th><th>Jumlah</th></tr><tr><td>${esc(iService.value)}</td><td>${rupiah(amount)}</td></tr></table><p class="invoice-total">TOTAL: ${rupiah(amount)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`}
 tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});iCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==iCustomer.value);iPlate.value=c?.plate||""});
 tDate.value=new Date().toISOString().slice(0,10);iDate.value=new Date().toISOString().slice(0,10);
-function clearAll(){if(confirm("Hapus SEMUA data aplikasi & login? Password akan kembali ke default.")){localStorage.removeItem("biroJasaDB");sessionStorage.removeItem("biroJasaAuthed");location.reload()}}
+function clearAll(){if(confirm("Hapus SEMUA data aplikasi & login? Password akan kembali ke default. Ini akan menghapus data di SEMUA perangkat yang terhubung.")){
+  localStorage.removeItem("biroJasaDB_cache");
+  sessionStorage.removeItem("biroJasaAuthed");
+  const fresh=defaultDB();
+  DOC_REF.set(fresh).then(()=>{LOGO_REF.delete().catch(()=>{});location.reload()}).catch(err=>{alert("Gagal menghapus data di server: "+err.message)});
+}}
 
 function doLogin(e){
   e.preventDefault();
@@ -355,17 +457,10 @@ function saveAuth(){
   if(p!==p2){authMsg.textContent="Konfirmasi password tidak cocok.";authMsg.style.color="#b91c1c";return}
   if(p.length<4){authMsg.textContent="Password minimal 4 karakter.";authMsg.style.color="#b91c1c";return}
   db.auth={user:u,pass:p};
-  localStorage.setItem("biroJasaDB",JSON.stringify(db));
+  save();
   authUser.value="";authPass.value="";authPass2.value="";
   authMsg.textContent="Login berhasil diperbarui. Gunakan username/password baru saat masuk berikutnya.";
   authMsg.style.color="#15803d";
-}
-
-// Stay logged in for this browser tab session; otherwise show login screen.
-if(sessionStorage.getItem("biroJasaAuthed")==="1"){
-  showApp();
-}else{
-  loginUser.focus();
 }
 
 if("serviceWorker" in navigator){
