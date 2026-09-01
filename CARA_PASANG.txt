@@ -1,0 +1,53 @@
+CARA PASANG APLIKASI DI HP ANDROID (PWA)
+==========================================
+
+Isi folder ini:
+- index.html
+- manifest.json
+- service-worker.js
+- icons/ (ikon aplikasi)
+
+PENTING: Supaya bisa di-"Install" jadi ikon aplikasi di HP dan bisa
+dipakai offline, file-file ini HARUS diakses lewat alamat https://
+(bukan dibuka langsung dari file di HP). Ini aturan keamanan bawaan
+dari HP Android / browser Chrome, bukan batasan dari aplikasinya.
+
+Pilih salah satu cara hosting gratis di bawah ini (5–10 menit):
+
+CARA 1 — Netlify Drop (paling gampang, tanpa akun)
+1. Di komputer, buka https://app.netlify.com/drop
+2. Seret (drag & drop) seluruh folder ini ke halaman tersebut.
+3. Tunggu selesai upload, nanti muncul alamat web seperti:
+   https://nama-acak-123.netlify.app
+4. Buka alamat itu di HP Android pakai Chrome.
+
+CARA 2 — GitHub Pages (kalau sudah punya akun GitHub)
+1. Buat repository baru, upload semua isi folder ini ke repo tsb.
+2. Masuk Settings > Pages, pilih branch "main" folder "/root".
+3. Tunggu beberapa menit, alamatnya akan muncul, contoh:
+   https://namauser.github.io/nama-repo/
+
+CARA 3 — Hosting sendiri (cPanel / domain sendiri)
+1. Upload semua isi folder ini (index.html, manifest.json,
+   service-worker.js, folder icons) ke public_html domain Anda.
+2. Pastikan domain sudah aktif SSL/HTTPS (biasanya otomatis aktif).
+3. Buka https://domainanda.com dari HP.
+
+SETELAH WEBSITE-NYA BISA DIBUKA DARI HP:
+1. Buka alamat webnya di Google Chrome (HP Android).
+2. Login seperti biasa (default: admin / biro2026).
+3. Akan muncul tombol hijau "⬇️ Install App" di pojok kanan atas,
+   ATAU: ketuk titik tiga (⋮) di Chrome > pilih "Add to Home screen"
+   / "Tambahkan ke layar utama" / "Install app".
+4. Ikon aplikasi akan muncul di layar utama HP seperti aplikasi
+   biasa, tampil layar penuh tanpa address bar, dan tetap bisa
+   dipakai walau HP dalam kondisi offline (data tersimpan di HP,
+   sama seperti sebelumnya di versi web).
+
+CATATAN:
+- Setiap HP menyimpan datanya sendiri-sendiri di browser HP
+  tersebut (belum ada sinkronisasi data antar HP/perangkat).
+- Untuk logo usaha dan grafik tetap berfungsi normal di versi HP ini.
+- Kalau nanti ada update aplikasi, cukup upload ulang file yang
+  baru ke hosting yang sama; pengguna cukup buka ulang aplikasinya
+  dan pembaruan akan otomatis terpasang.

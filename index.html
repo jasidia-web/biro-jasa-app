@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Biro Jasa - Keuangan & Customer</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17324d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Biro Jasa">
+<meta name="description" content="Aplikasi pencatatan keuangan, customer, dan pajak untuk Biro Jasa & Cargo.">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#1f2937}
+header{background:#17324d;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}
+header h1{margin:0;font-size:21px}.wrap{display:flex;min-height:calc(100vh - 64px)}
+nav{width:230px;background:#fff;border-right:1px solid #ddd;padding:14px}
+nav button{width:100%;text-align:left;border:0;background:none;padding:12px;border-radius:8px;margin:3px 0;cursor:pointer}
+nav button.active,nav button:hover{background:#e9f1f8;color:#17324d;font-weight:bold}
+main{flex:1;padding:22px;overflow:auto}.page{display:none}.page.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 2px 8px #0000000d}.card small{color:#6b7280}.card b{display:block;font-size:22px;margin-top:7px}
+.panel{background:#fff;border-radius:12px;padding:18px;margin-bottom:18px;box-shadow:0 2px 8px #0000000d}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+label{font-size:13px;font-weight:bold;display:block;margin-bottom:5px}input,select,textarea{width:100%;padding:9px;border:1px solid #d1d5db;border-radius:7px}textarea{min-height:70px}
+button.primary{background:#17324d;color:#fff;border:0;padding:10px 15px;border-radius:7px;cursor:pointer}.danger{background:#fee2e2;border:0;padding:6px 9px;border-radius:6px;cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #eee;text-align:left}th{background:#f8fafc}
+.actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}.muted{color:#6b7280;font-size:13px}
+.badge{padding:4px 8px;border-radius:12px;font-size:11px;background:#e5e7eb}.warn{background:#fef3c7}.late{background:#fee2e2}.ok{background:#dcfce7}
+h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{display:block}nav{width:auto;display:flex;overflow:auto}nav button{min-width:130px}.grid,.grid3{grid-template-columns:1fr}}
+@media print{header,nav,.no-print{display:none!important}main{padding:0}.page{display:none}.page.invoice-print,.page#report.active{display:block}.invoice{box-shadow:none}}
+.invoice{background:#fff;padding:30px;max-width:800px;margin:auto}.invoice h2{text-align:center}.invoice-total{text-align:right;font-size:20px;font-weight:bold}
+#loginScreen{position:fixed;inset:0;background:#17324d;display:flex;align-items:center;justify-content:center;z-index:999}
+.loginBox{background:#fff;padding:34px 32px;border-radius:14px;width:320px;box-shadow:0 10px 30px #00000033}
+.loginBox h2{margin:0 0 4px;color:#17324d}.loginBox p.sub{margin:0 0 20px;color:#6b7280;font-size:13px}
+.loginBox label{font-size:13px;font-weight:bold;display:block;margin:12px 0 5px}
+.loginBox input{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:7px;box-sizing:border-box}
+.loginBox button{width:100%;margin-top:18px;background:#17324d;color:#fff;border:0;padding:11px;border-radius:7px;cursor:pointer;font-weight:bold}
+#loginError{color:#b91c1c;font-size:13px;margin-top:10px;display:none}
+.loginHint{font-size:11.5px;color:#9ca3af;margin-top:14px;text-align:center}
+#logoutBtn{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:10px}
+.reportTabs{display:flex;gap:8px;margin-bottom:14px}
+.reportTabs button{border:1px solid #d1d5db;background:#fff;padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:bold;color:#374151}
+.reportTabs button.active{background:#17324d;color:#fff;border-color:#17324d}
+.chartWrap{position:relative;width:100%;height:320px}
+@media(max-width:900px){.chartWrap{height:260px}}
+.sumline{display:flex;gap:22px;flex-wrap:wrap;margin:0}
+.sumline span{background:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <form class="loginBox" id="loginForm" onsubmit="return doLogin(event)">
+    <h2>Masuk Aplikasi</h2>
+    <p class="sub">Biro Jasa &amp; Cargo — Buku Keuangan</p>
+    <label>Username</label>
+    <input id="loginUser" autocomplete="off" autocapitalize="off" autocorrect="off">
+    <label>Password</label>
+    <input id="loginPass" type="password" autocomplete="off" autocapitalize="off" autocorrect="off">
+    <div id="loginError">Username atau password salah.</div>
+    <button type="submit">Masuk</button>
+    <p class="loginHint">Default: <b>admin</b> / <b>biro2026</b> — ganti di menu Pengaturan setelah masuk.</p>
+  </form>
+</div>
+
+<div id="appMain" style="display:none">
+<header><img id="logoImg" style="display:none;height:56px;width:56px;object-fit:cover;border-radius:8px;margin-right:14px;vertical-align:middle;background:#fff"><h1 id="appName" style="display:inline-block;vertical-align:middle">BIRO JASA — KEUANGAN</h1><span>Offline • Data tersimpan di browser <button id="installBtn" class="no-print" style="display:none;background:#22c55e;border:0;color:#0b1f13;font-weight:bold;padding:6px 12px;border-radius:6px;cursor:pointer;margin-left:10px" onclick="installApp()">⬇️ Install App</button><button id="logoutBtn" class="no-print" onclick="doLogout()">Keluar</button></span></header>
+<div class="wrap">
+<nav>
+<button class="active" onclick="show('dashboard',this)">📊 Dashboard</button>
+<button onclick="show('customers',this)">👤 Customer</button>
+<button onclick="show('transactions',this)">💰 Keuangan</button>
+<button onclick="show('reminders',this)">🔔 Reminder Pajak</button>
+<button onclick="show('invoice',this)">🧾 Invoice</button>
+<button onclick="show('withdraw',this)">💵 Pengambilan Pribadi</button>
+<button onclick="show('report',this)">📑 Laporan Keuangan</button>
+<button onclick="show('settings',this)">⚙️ Pengaturan</button>
+</nav>
+<main>
+<section id="dashboard" class="page active">
+<h2>Dashboard</h2><div class="cards">
+<div class="card"><small>Total Pemasukan</small><b id="dIn">Rp0</b></div>
+<div class="card"><small>Total Pengeluaran</small><b id="dOut">Rp0</b></div>
+<div class="card"><small>Profit Bersih</small><b id="dProfit">Rp0</b></div>
+<div class="card"><small>Profit Perusahaan 70%</small><b id="d70">Rp0</b></div>
+<div class="card"><small>Pribadi 30% (Bisa Diambil)</small><b id="d30">Rp0</b></div>
+<div class="card"><small>Sudah Diambil Pribadi</small><b id="dTaken">Rp0</b></div>
+<div class="card"><small>Sisa Pribadi</small><b id="dAvailable">Rp0</b></div>
+<div class="card"><small>Jumlah Transaksi</small><b id="dCount">0</b></div>
+</div>
+<div class="panel"><h3>Ringkasan Profit</h3>
+<p><b>Profit bersih = Pemasukan − Pengeluaran</b></p>
+<p>Perusahaan 70%: <b id="d70b">Rp0</b> &nbsp; | &nbsp; Pribadi 30%: <b id="d30b">Rp0</b></p>
+<p>Jumlah customer: <b id="dCust">0</b> • Reminder aktif: <b id="dRem">0</b></p></div>
+<div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div>
+</section>
+
+<section id="customers" class="page"><h2>Customer</h2>
+<div class="panel"><h3>Tambah Customer</h3><div class="grid3">
+<div><label>Nama Customer</label><input id="cName"></div><div><label>Kontak WhatsApp</label><input id="cPhone"></div><div><label>Nopol</label><input id="cPlate"></div>
+<div><label>Jenis Kendaraan</label><select id="cVehicle"><option>Motor</option><option>Mobil</option></select></div><div><label>Jatuh Tempo Pajak</label><input id="cTax" type="date"></div><div><label>Catatan</label><input id="cNote"></div>
+</div><br><button class="primary" onclick="addCustomer()">Simpan Customer</button></div>
+<div class="panel"><table><thead><tr><th>Nama</th><th>Kontak</th><th>Nopol</th><th>Kendaraan</th><th>Pajak</th><th>Aksi</th></tr></thead><tbody id="custTable"></tbody></table></div>
+</section>
+
+<section id="transactions" class="page"><h2>Keuangan / Debit Kredit</h2>
+<div class="panel"><h3>Input Transaksi</h3><div class="grid3">
+<div><label>Tanggal</label><input id="tDate" type="date"></div><div><label>Customer</label><select id="tCustomer"></select></div><div><label>Nopol</label><input id="tPlate" readonly></div>
+<div><label>Jenis Layanan</label><select id="tService"></select></div><div><label>Pemasukan</label><input id="tIn" type="number" min="0" value="0"></div><div><label>Pengeluaran</label><input id="tOut" type="number" min="0" value="0"></div>
+<div><label>Status</label><select id="tStatus"><option>Lunas</option><option>Belum Lunas</option><option>Proses</option><option>Selesai</option></select></div><div><label>Keterangan</label><input id="tNote"></div>
+</div><br><button class="primary" onclick="addTransaction()">Simpan Transaksi</button></div>
+<div class="panel"><table><thead><tr><th>Tanggal</th><th>Nopol</th><th>Customer</th><th>Layanan</th><th>Masuk</th><th>Keluar</th><th>Profit</th><th>70%</th><th>30%</th><th>Status</th></tr></thead><tbody id="trxTable"></tbody></table></div>
+</section>
+
+<section id="reminders" class="page"><h2>Reminder Pajak Kendaraan</h2>
+<div class="panel"><p class="muted">Reminder dihitung berdasarkan tanggal jatuh tempo. H-30 sampai lewat jatuh tempo ditampilkan.</p><table><thead><tr><th>Nopol</th><th>Customer</th><th>Kontak</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="remTable"></tbody></table></div>
+</section>
+
+<section id="invoice" class="page"><h2>Invoice</h2>
+<div class="panel no-print"><div class="grid3"><div><label>No. Invoice</label><input id="iNo" value="INV-001"></div><div><label>Tanggal</label><input id="iDate" type="date"></div><div><label>Customer</label><select id="iCustomer"></select></div>
+<div><label>Nopol</label><input id="iPlate"></div><div><label>Layanan</label><select id="iService"></select></div><div><label>Nominal</label><input id="iAmount" type="number" value="0"></div></div><br><button class="primary" onclick="makeInvoice()">Tampilkan Invoice</button></div>
+<div id="invoiceArea"></div>
+</section>
+
+
+
+<section id="withdraw" class="page"><h2>Pengambilan Pribadi 30%</h2>
+<div class="panel"><p>Saldo yang boleh diambil berasal dari <b>30% profit bersih</b>. Pengambilan dicatat agar saldo pribadi yang tersedia dapat dipantau.</p>
+<div class="grid3"><div><label>Tanggal</label><input id="wDate" type="date"></div><div><label>Jumlah Diambil</label><input id="wAmount" type="number" min="0" value="0"></div><div><label>Keterangan</label><input id="wNote"></div></div><br>
+<button class="primary" onclick="addWithdrawal()">Simpan Pengambilan</button></div>
+<div class="panel"><table><thead><tr><th>Tanggal</th><th>Jumlah</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody id="wTable"></tbody></table></div></section>
+
+<section id="report" class="page"><h2>Laporan Keuangan</h2>
+
+<div class="reportTabs no-print">
+<button id="repTabBulan" class="active" onclick="setReportMode('bulan')">📅 Laporan Bulanan</button>
+<button id="repTabTahun" onclick="setReportMode('tahun')">📆 Laporan Tahunan</button>
+</div>
+
+<div id="reportBulanView">
+<div class="panel no-print"><div class="grid3"><div><label>Bulan</label><input id="rMonth" type="month"></div><div><label>Filter Laporan</label><select id="rType"><option value="all">Semua</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option></select></div><div><label>&nbsp;</label><button class="primary" onclick="renderReport()">Tampilkan</button></div></div></div>
+<div class="panel"><div id="reportSummary"></div><div style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Nopol</th><th>Customer</th><th>Layanan</th><th>Pemasukan</th><th>Pengeluaran</th><th>Profit</th><th>Perusahaan 70%</th><th>Pribadi 30%</th><th>Status</th></tr></thead><tbody id="reportTable"></tbody></table></div></div>
+<div class="panel"><h3>Grafik Untung/Rugi Harian</h3><p class="muted" id="chartBulanLabel"></p><div class="chartWrap"><canvas id="chartHarian" height="110"></canvas></div></div>
+</div>
+
+<div id="reportTahunView" style="display:none">
+<div class="panel no-print"><div class="grid3"><div><label>Tahun</label><select id="rYear"></select></div><div></div><div><label>&nbsp;</label><button class="primary" onclick="renderReportYear()">Tampilkan</button></div></div></div>
+<div class="panel"><div id="reportYearSummary" class="sumline"></div></div>
+<div class="panel"><h3>Grafik Untung/Rugi per Bulan</h3><div class="chartWrap"><canvas id="chartTahunan" height="110"></canvas></div></div>
+<div class="panel"><div style="overflow:auto"><table><thead><tr><th>Bulan</th><th>Pemasukan</th><th>Pengeluaran</th><th>Profit</th><th>Perusahaan 70%</th><th>Pribadi 30%</th></tr></thead><tbody id="reportYearTable"></tbody></table></div></div>
+</div>
+
+<div class="panel no-print"><button class="primary" onclick="window.print()">🖨️ Cetak Laporan / Simpan PDF</button></div></section>
+
+<section id="settings" class="page"><h2>Pengaturan</h2>
+<div class="panel"><h3>Logo Usaha</h3><p class="muted">Logo akan tampil di header dan di invoice. Format gambar (PNG/JPG), ukuran disarankan persegi dan di bawah 1MB.</p>
+<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+<img id="logoPreview" style="display:none;height:80px;width:80px;object-fit:cover;border-radius:10px;border:1px solid #d1d5db">
+<div><input type="file" id="logoInput" accept="image/*" onchange="uploadLogo(event)"><br><button class="danger" style="margin-top:8px" onclick="removeLogo()">Hapus Logo</button></div>
+</div><div id="logoMsg" class="muted" style="margin-top:8px"></div></div>
+<div class="panel"><div class="grid"><div><label>Nama Usaha</label><input id="sName"></div><div><label>Nama Pemilik</label><input id="sOwner"></div><div><label>No. WhatsApp</label><input id="sPhone"></div><div><label>Alamat</label><textarea id="sAddress"></textarea></div></div><br><button class="primary" onclick="saveSettings()">Simpan Pengaturan</button> <button onclick="clearAll()">Reset Semua Data</button></div>
+<div class="panel"><h3>Login Admin</h3><p class="muted">Ganti username dan password yang dipakai untuk masuk ke aplikasi ini.</p><div class="grid3"><div><label>Username Baru</label><input id="authUser"></div><div><label>Password Baru</label><input id="authPass" type="password" autocomplete="off"></div><div><label>Ulangi Password</label><input id="authPass2" type="password" autocomplete="off"></div></div><br><button class="primary" onclick="saveAuth()">Simpan Login</button><div id="authMsg" class="muted" style="margin-top:8px"></div></div></section>
+</main></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script>
+const cargo=["Kirim Motor","Kirim Mobil","Cargo","Asuransi Cargo"];
+const biro=["Perpanjangan 1 Tahun","Perpanjangan 5 Tahun","STNK Hilang","Balik Nama","Mutasi","Mutasi + Balik Nama","Blokir Jual","Nopil","Layanan Lainnya"];
+const services=[...cargo,...biro];
+let db=JSON.parse(localStorage.getItem("biroJasaDB")||'{"customers":[],"transactions":[],"withdrawals":[],"settings":{"name":"BIRO JASA","owner":"","phone":"","address":""}}');
+if(!db.withdrawals) db.withdrawals=[];
+if(!db.auth) db.auth={user:"admin",pass:"biro2026"};
+const rupiah=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+function save(){localStorage.setItem("biroJasaDB",JSON.stringify(db));render();}
+function show(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn?.classList.add("active");render();}
+function fillServices(){["tService","iService"].forEach(id=>document.getElementById(id).innerHTML=services.map(x=>`<option>${x}</option>`).join(""))}
+function fillCustomers(){let opts='<option value="">-- pilih customer --</option>'+db.customers.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.plate)}</option>`).join("");["tCustomer","iCustomer"].forEach(id=>document.getElementById(id).innerHTML=opts)}
+function addCustomer(){let c={id:Date.now(),name:cName.value.trim(),phone:cPhone.value.trim(),plate:cPlate.value.trim().toUpperCase(),vehicle:cVehicle.value,tax:cTax.value,note:cNote.value};if(!c.name||!c.plate){alert("Nama dan Nopol wajib diisi");return}db.customers.push(c);["cName","cPhone","cPlate","cTax","cNote"].forEach(id=>document.getElementById(id).value="");save()}
+function delCustomer(id){if(confirm("Hapus customer?")){db.customers=db.customers.filter(c=>c.id!=id);save()}}
+function addTransaction(){let cust=db.customers.find(c=>c.id==tCustomer.value);let x={id:Date.now(),date:tDate.value||new Date().toISOString().slice(0,10),customer:cust?.name||"",phone:cust?.phone||"",plate:cust?.plate||"",service:tService.value,inc:+tIn.value,out:+tOut.value,status:tStatus.value,note:tNote.value};if(!x.customer){alert("Pilih customer");return}db.transactions.push(x);save();alert("Transaksi tersimpan")}
+function daysTo(d){return Math.ceil((new Date(d+"T00:00:00")-new Date(new Date().toISOString().slice(0,10)+"T00:00:00"))/86400000)}
+function render(){let inc=db.transactions.reduce((a,x)=>a+x.inc,0),out=db.transactions.reduce((a,x)=>a+x.out,0),p=inc-out;
+let totalTaken=db.withdrawals.reduce((a,x)=>a+x.amount,0), personal=p*.3, available=personal-totalTaken;
+dIn.textContent=rupiah(inc);dOut.textContent=rupiah(out);dProfit.textContent=rupiah(p);d70.textContent=rupiah(p*.7);d30.textContent=rupiah(personal);
+if(document.getElementById("dTaken")) dTaken.textContent=rupiah(totalTaken);
+if(document.getElementById("dAvailable")) dAvailable.textContent=rupiah(available);
+if(document.getElementById("dCount")) dCount.textContent=db.transactions.length;
+if(document.getElementById("d70b")) d70b.textContent=rupiah(p*.7);
+if(document.getElementById("d30b")) d30b.textContent=rupiah(personal);
+dCust.textContent=db.customers.length;dRem.textContent=db.customers.filter(c=>c.tax&&daysTo(c.tax)<=30).length;
+custTable.innerHTML=db.customers.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.plate)}</td><td>${esc(c.vehicle)}</td><td>${c.tax||"-"}</td><td><button class="danger" onclick="delCustomer(${c.id})">Hapus</button></td></tr>`).join("");
+trxTable.innerHTML=db.transactions.slice().reverse().map(x=>{let p=x.inc-x.out;return `<tr><td>${x.date}</td><td>${esc(x.plate)}</td><td>${esc(x.customer)}</td><td>${esc(x.service)}</td><td>${rupiah(x.inc)}</td><td>${rupiah(x.out)}</td><td>${rupiah(p)}</td><td>${rupiah(p*.7)}</td><td>${rupiah(p*.3)}</td><td>${esc(x.status)}</td></tr>`}).join("");
+remTable.innerHTML=db.customers.filter(c=>c.tax&&daysTo(c.tax)<=30).sort((a,b)=>daysTo(a.tax)-daysTo(b.tax)).map(c=>{let d=daysTo(c.tax), cls=d<0?"late":d<=7?"warn":"ok", st=d<0?"Lewat "+Math.abs(d)+" hari":d==0?"JATUH TEMPO":"H-"+d;let msg=encodeURIComponent(`Halo ${c.name}, mengingatkan bahwa pajak kendaraan ${c.plate} jatuh tempo pada ${c.tax}. Silakan hubungi kami untuk pengurusan. Terima kasih.`);return `<tr><td>${esc(c.plate)}</td><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${c.tax}</td><td><span class="badge ${cls}">${st}</span></td><td><a target="_blank" href="https://wa.me/${(c.phone||"").replace(/[^0-9]/g,"").replace(/^0/,"62")}?text=${msg}">WhatsApp</a></td></tr>`}).join("");
+wTable.innerHTML=db.withdrawals.slice().reverse().map(x=>`<tr><td>${x.date}</td><td>${rupiah(x.amount)}</td><td>${esc(x.note)}</td><td><button class="danger" onclick="delWithdrawal(${x.id})">Hapus</button></td></tr>`).join("");
+if(document.getElementById("wDate")&&!wDate.value) wDate.value=new Date().toISOString().slice(0,10);
+if(document.getElementById("rMonth")&&!rMonth.value) rMonth.value=new Date().toISOString().slice(0,7);
+fillYearSelect();
+if(document.getElementById("reportTahunView")&&reportTahunView.style.display!=="none"){renderReportYear()}else{renderReport()}
+recent.innerHTML=db.transactions.slice(-8).reverse().map(x=>`<p><b>${x.date}</b> — ${esc(x.customer)} — ${esc(x.service)} — ${rupiah(x.inc-x.out)}</p>`).join("")||"<p>Belum ada transaksi.</p>";
+appName.textContent=(db.settings.name||"BIRO JASA")+" — KEUANGAN";sName.value=db.settings.name;sOwner.value=db.settings.owner;sPhone.value=db.settings.phone;sAddress.value=db.settings.address;fillCustomers();fillServices();renderLogo()}
+function renderLogo(){
+  const logo=db.settings.logo;
+  [document.getElementById("logoImg"),document.getElementById("logoPreview")].forEach(img=>{
+    if(!img)return;
+    if(logo){img.src=logo;img.style.display="inline-block"}else{img.style.display="none"}
+  });
+}
+function uploadLogo(e){
+  const file=e.target.files&&e.target.files[0];
+  if(!file)return;
+  if(!file.type.startsWith("image/")){logoMsg.textContent="File harus berupa gambar.";logoMsg.style.color="#b91c1c";return}
+  if(file.size>1500000){logoMsg.textContent="Ukuran file terlalu besar (maks ±1.5MB).";logoMsg.style.color="#b91c1c";return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    db.settings.logo=reader.result;
+    try{
+      localStorage.setItem("biroJasaDB",JSON.stringify(db));
+      renderLogo();
+      logoMsg.textContent="Logo berhasil disimpan.";logoMsg.style.color="#15803d";
+    }catch(err){
+      logoMsg.textContent="Gagal menyimpan logo (mungkin terlalu besar). Coba gambar yang lebih kecil.";logoMsg.style.color="#b91c1c";
+      delete db.settings.logo;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+function removeLogo(){
+  delete db.settings.logo;
+  localStorage.setItem("biroJasaDB",JSON.stringify(db));
+  logoInput.value="";
+  renderLogo();
+  logoMsg.textContent="Logo dihapus.";logoMsg.style.color="#6b7280";
+}
+function saveSettings(){db.settings={...db.settings,name:sName.value,owner:sOwner.value,phone:sPhone.value,address:sAddress.value};save();alert("Pengaturan tersimpan")}
+function addWithdrawal(){let amount=+wAmount.value||0;let inc=db.transactions.reduce((a,x)=>a+x.inc,0),out=db.transactions.reduce((a,x)=>a+x.out,0),available=(inc-out)*.3-db.withdrawals.reduce((a,x)=>a+x.amount,0);if(amount<=0){alert("Jumlah pengambilan harus lebih dari 0");return}if(amount>available){alert("Pengambilan melebihi saldo pribadi 30% yang tersedia.");return}db.withdrawals.push({id:Date.now(),date:wDate.value||new Date().toISOString().slice(0,10),amount,note:wNote.value});wAmount.value=0;wNote.value="";save();alert("Pengambilan pribadi tersimpan")}
+function delWithdrawal(id){if(confirm("Hapus catatan pengambilan?")){db.withdrawals=db.withdrawals.filter(x=>x.id!=id);save()}}
+function renderReport(){if(!document.getElementById("reportTable"))return;let m=rMonth.value||"", type=rType.value;let rows=db.transactions.filter(x=>!m||x.date.startsWith(m)).filter(x=>type==="income"?x.inc>0:type==="expense"?x.out>0:true);let inc=rows.reduce((a,x)=>a+x.inc,0),out=rows.reduce((a,x)=>a+x.out,0),p=inc-out;reportSummary.innerHTML=`<p><b>Periode:</b> ${m||"Semua periode"} &nbsp; | &nbsp; <b>Pemasukan:</b> ${rupiah(inc)} &nbsp; | &nbsp; <b>Pengeluaran:</b> ${rupiah(out)} &nbsp; | &nbsp; <b>Profit:</b> ${rupiah(p)}</p><p><b>Perusahaan 70%:</b> ${rupiah(p*.7)} &nbsp; | &nbsp; <b>Pribadi 30%:</b> ${rupiah(p*.3)}</p>`;reportTable.innerHTML=rows.map(x=>{let p=x.inc-x.out;return `<tr><td>${x.date}</td><td>${esc(x.plate)}</td><td>${esc(x.customer)}</td><td>${esc(x.service)}</td><td>${rupiah(x.inc)}</td><td>${rupiah(x.out)}</td><td>${rupiah(p)}</td><td>${rupiah(p*.7)}</td><td>${rupiah(p*.3)}</td><td>${esc(x.status)}</td></tr>`}).join("")||`<tr><td colspan="10">Tidak ada transaksi pada periode tersebut.</td></tr>`;
+renderDailyChart(m);}
+
+function setReportMode(mode){
+  const isBulan=mode==="bulan";
+  document.getElementById("reportBulanView").style.display=isBulan?"block":"none";
+  document.getElementById("reportTahunView").style.display=isBulan?"none":"block";
+  document.getElementById("repTabBulan").classList.toggle("active",isBulan);
+  document.getElementById("repTabTahun").classList.toggle("active",!isBulan);
+  if(isBulan){renderReport()}else{renderReportYear()}
+}
+
+function fillYearSelect(){
+  if(!document.getElementById("rYear"))return;
+  const cur=String(new Date().getFullYear());
+  const years=new Set(db.transactions.map(x=>(x.date||"").slice(0,4)).filter(Boolean));
+  years.add(cur);
+  const sorted=[...years].sort((a,b)=>b-a);
+  const prevVal=rYear.value;
+  rYear.innerHTML=sorted.map(y=>`<option value="${y}">${y}</option>`).join("");
+  rYear.value=sorted.includes(prevVal)?prevVal:cur;
+}
+
+function renderReportYear(){
+  if(!document.getElementById("reportYearTable"))return;
+  fillYearSelect();
+  const year=rYear.value||String(new Date().getFullYear());
+  const labels=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  const inc=new Array(12).fill(0), out=new Array(12).fill(0);
+  db.transactions.forEach(x=>{
+    if(x.date&&x.date.startsWith(year+"-")){
+      const mi=parseInt(x.date.slice(5,7),10);
+      if(mi>=1&&mi<=12){inc[mi-1]+=x.inc;out[mi-1]+=x.out}
+    }
+  });
+  const profit=inc.map((v,i)=>v-out[i]);
+  const totInc=inc.reduce((a,b)=>a+b,0), totOut=out.reduce((a,b)=>a+b,0), totP=totInc-totOut;
+  reportYearSummary.innerHTML=`<span><b>Tahun:</b> ${year}</span><span><b>Pemasukan:</b> ${rupiah(totInc)}</span><span><b>Pengeluaran:</b> ${rupiah(totOut)}</span><span><b>Profit:</b> ${rupiah(totP)}</span><span><b>Perusahaan 70%:</b> ${rupiah(totP*.7)}</span><span><b>Pribadi 30%:</b> ${rupiah(totP*.3)}</span>`;
+  reportYearTable.innerHTML=labels.map((lb,i)=>`<tr><td>${lb}</td><td>${rupiah(inc[i])}</td><td>${rupiah(out[i])}</td><td>${rupiah(profit[i])}</td><td>${rupiah(profit[i]*.7)}</td><td>${rupiah(profit[i]*.3)}</td></tr>`).join("");
+  drawProfitChart("chartTahunan","yearly",labels,inc,out,profit);
+}
+
+function renderDailyChart(monthStr){
+  const el=document.getElementById("chartHarian");
+  if(!el)return;
+  const m=monthStr||new Date().toISOString().slice(0,7);
+  const [y,mm]=m.split("-").map(Number);
+  const dim=new Date(y,mm,0).getDate();
+  const inc=new Array(dim).fill(0), out=new Array(dim).fill(0);
+  db.transactions.forEach(x=>{
+    if(x.date&&x.date.startsWith(m)){
+      const d=parseInt(x.date.slice(8,10),10);
+      if(d>=1&&d<=dim){inc[d-1]+=x.inc;out[d-1]+=x.out}
+    }
+  });
+  const profit=inc.map((v,i)=>v-out[i]);
+  const labels=Array.from({length:dim},(_,i)=>String(i+1));
+  if(document.getElementById("chartBulanLabel")) chartBulanLabel.textContent="Periode: "+m;
+  drawProfitChart("chartHarian","daily",labels,inc,out,profit);
+}
+
+let profitCharts={};
+function drawProfitChart(canvasId,key,labels,incData,outData,profitData){
+  if(typeof Chart==="undefined")return;
+  const ctx=document.getElementById(canvasId);
+  if(!ctx)return;
+  if(profitCharts[key]){profitCharts[key].destroy()}
+  profitCharts[key]=new Chart(ctx,{
+    data:{labels,datasets:[
+      {type:"bar",label:"Pemasukan",data:incData,backgroundColor:"#16a34a"},
+      {type:"bar",label:"Pengeluaran",data:outData,backgroundColor:"#dc2626"},
+      {type:"line",label:"Profit / Rugi",data:profitData,borderColor:"#17324d",backgroundColor:"#17324d",tension:.3,fill:false,pointRadius:3}
+    ]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+rupiah(c.parsed.y)}}},
+      scales:{y:{beginAtZero:true,ticks:{callback:v=>rupiah(v)}}}
+    }
+  });
+}
+
+function makeInvoice(){let c=db.customers.find(c=>c.id==iCustomer.value);let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10), amount=+iAmount.value;let logoTag=db.settings.logo?`<img src="${db.settings.logo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}</p><p><b>Customer:</b> ${esc(c?.name||"")}<br><b>Kontak:</b> ${esc(c?.phone||"")}<br><b>Nopol:</b> ${esc(iPlate.value||c?.plate||"")}</p><table><tr><th>Layanan</th><th>Jumlah</th></tr><tr><td>${esc(iService.value)}</td><td>${rupiah(amount)}</td></tr></table><p class="invoice-total">TOTAL: ${rupiah(amount)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`}
+tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});iCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==iCustomer.value);iPlate.value=c?.plate||""});
+tDate.value=new Date().toISOString().slice(0,10);iDate.value=new Date().toISOString().slice(0,10);
+function clearAll(){if(confirm("Hapus SEMUA data aplikasi & login? Password akan kembali ke default.")){localStorage.removeItem("biroJasaDB");sessionStorage.removeItem("biroJasaAuthed");location.reload()}}
+
+function doLogin(e){
+  e.preventDefault();
+  const u=loginUser.value.trim(), p=loginPass.value;
+  if(u===db.auth.user && p===db.auth.pass){
+    sessionStorage.setItem("biroJasaAuthed","1");
+    showApp();
+    loginError.style.display="none";
+  }else{
+    loginError.style.display="block";
+  }
+  return false;
+}
+function doLogout(){
+  sessionStorage.removeItem("biroJasaAuthed");
+  document.getElementById("appMain").style.display="none";
+  document.getElementById("loginScreen").style.display="flex";
+  loginUser.value="";loginPass.value="";loginUser.focus();
+}
+function showApp(){
+  document.getElementById("loginScreen").style.display="none";
+  document.getElementById("appMain").style.display="block";
+  render();
+}
+function saveAuth(){
+  const u=authUser.value.trim(), p=authPass.value, p2=authPass2.value;
+  if(!u||!p){authMsg.textContent="Username dan password wajib diisi.";authMsg.style.color="#b91c1c";return}
+  if(p!==p2){authMsg.textContent="Konfirmasi password tidak cocok.";authMsg.style.color="#b91c1c";return}
+  if(p.length<4){authMsg.textContent="Password minimal 4 karakter.";authMsg.style.color="#b91c1c";return}
+  db.auth={user:u,pass:p};
+  localStorage.setItem("biroJasaDB",JSON.stringify(db));
+  authUser.value="";authPass.value="";authPass2.value="";
+  authMsg.textContent="Login berhasil diperbarui. Gunakan username/password baru saat masuk berikutnya.";
+  authMsg.style.color="#15803d";
+}
+
+// Stay logged in for this browser tab session; otherwise show login screen.
+if(sessionStorage.getItem("biroJasaAuthed")==="1"){
+  showApp();
+}else{
+  loginUser.focus();
+}
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("service-worker.js").catch(()=>{});
+  });
+}
+
+let deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",(e)=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const btn=document.getElementById("installBtn");
+  if(btn) btn.style.display="inline-block";
+});
+function installApp(){
+  if(!deferredInstallPrompt)return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.finally(()=>{
+    deferredInstallPrompt=null;
+    const btn=document.getElementById("installBtn");
+    if(btn) btn.style.display="none";
+  });
+}
+window.addEventListener("appinstalled",()=>{
+  const btn=document.getElementById("installBtn");
+  if(btn) btn.style.display="none";
+});
+</script>
+</body></html>
