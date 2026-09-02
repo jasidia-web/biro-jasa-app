@@ -32,6 +32,33 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;borde
 h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{display:block}nav{width:auto;display:flex;overflow:auto}nav button{min-width:130px}.grid,.grid3{grid-template-columns:1fr}}
 @media print{header,nav,.no-print{display:none!important}main{padding:0}.page{display:none}.page.invoice-print,.page#report.active{display:block}.invoice{box-shadow:none}}
 .invoice{background:#fff;padding:30px;max-width:800px;margin:auto}.invoice h2{text-align:center}.invoice-total{text-align:right;font-size:20px;font-weight:bold}
+.inv-header{display:flex;gap:16px;align-items:flex-start;border-bottom:2px solid #17324d;padding-bottom:14px;margin-bottom:14px}
+.inv-header img{height:56px;width:56px;object-fit:cover;border-radius:8px;flex-shrink:0}
+.inv-header .biz-name{font-size:19px;font-weight:bold;color:#17324d}
+.inv-header .biz-details{font-size:12.5px;color:#4b5563;line-height:1.5;margin-top:2px}
+.inv-title{text-align:center;font-size:26px;font-weight:bold;letter-spacing:2px;margin:14px 0 18px}
+.inv-parties{display:flex;justify-content:space-between;gap:20px;margin-bottom:16px;flex-wrap:wrap}
+.inv-parties .party{font-size:13.5px;line-height:1.6}
+.inv-parties .party b{display:block;font-size:14px}
+.inv-parties .meta{text-align:right}
+.inv-parties .meta .inv-no{color:#1d4ed8;font-weight:bold;font-size:18px}
+.inv-parties .meta .inv-date{color:#1d4ed8;font-size:13px}
+table.inv-items{width:100%;border-collapse:collapse;margin-bottom:16px}
+table.inv-items th{background:#1d4ed8;color:#fff;text-align:left;padding:8px 10px;font-size:13px}
+table.inv-items td{padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:13.5px;vertical-align:top}
+table.inv-items .item-sub{display:block;color:#6b7280;font-size:12px;margin-top:2px}
+table.inv-items td.num,table.inv-items th.num{text-align:right}
+.inv-bottom{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px}
+.inv-notes{flex:1;min-width:220px;border:1px solid #d1d5db;border-radius:6px;padding:10px 14px;font-size:13px;color:#374151}
+.inv-notes b{display:block;margin-bottom:6px}
+.inv-totals{min-width:260px;font-size:14px}
+.inv-totals .row{display:flex;justify-content:space-between;padding:6px 10px}
+.inv-totals .row.highlight{background:#1d4ed8;color:#fff;font-weight:bold}
+.inv-sign{text-align:right;margin:20px 0;font-size:13.5px}
+.inv-sign .sign-space{height:50px}
+.inv-bank{border:1px solid #d1d5db;border-radius:6px;padding:10px 14px;font-size:13px;max-width:320px}
+.inv-bank b{display:block;margin-bottom:4px}
+@media print{.inv-header,table.inv-items th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 #loginScreen{position:fixed;inset:0;background:#17324d;display:flex;align-items:center;justify-content:center;z-index:999}
 .loginBox{background:#fff;padding:34px 32px;border-radius:14px;width:320px;box-shadow:0 10px 30px #00000033}
 .loginBox h2{margin:0 0 4px;color:#17324d}.loginBox p.sub{margin:0 0 20px;color:#6b7280;font-size:13px}
@@ -162,7 +189,10 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
 <img id="logoPreview" style="display:none;height:80px;width:80px;object-fit:cover;border-radius:10px;border:1px solid #d1d5db">
 <div><input type="file" id="logoInput" accept="image/*" onchange="uploadLogo(event)"><br><button class="danger" style="margin-top:8px" onclick="removeLogo()">Hapus Logo</button></div>
 </div><div id="logoMsg" class="muted" style="margin-top:8px"></div></div>
-<div class="panel"><div class="grid"><div><label>Nama Usaha</label><input id="sName"></div><div><label>Nama Pemilik</label><input id="sOwner"></div><div><label>No. WhatsApp</label><input id="sPhone"></div><div><label>Alamat</label><textarea id="sAddress"></textarea></div></div><br><button class="primary" onclick="saveSettings()">Simpan Pengaturan</button> <button onclick="clearAll()">Reset Semua Data</button></div>
+<div class="panel"><div class="grid"><div><label>Nama Usaha</label><input id="sName"></div><div><label>Nama Pemilik</label><input id="sOwner"></div><div><label>No. WhatsApp</label><input id="sPhone"></div><div><label>Alamat</label><textarea id="sAddress"></textarea></div><div><label>Email (opsional)</label><input id="sEmail"></div><div><label>Website (opsional)</label><input id="sWebsite"></div><div><label>NPWP / Id Pajak (opsional)</label><input id="sTaxId"></div></div>
+<h3 style="margin-top:20px">Detail Rekening Bank (untuk invoice)</h3>
+<div class="grid"><div><label>Nama Bank</label><input id="sBankName" placeholder="Contoh: BCA"></div><div><label>No. Rekening</label><input id="sBankAccount"></div><div><label>Atas Nama</label><input id="sBankAccountName"></div></div>
+<br><button class="primary" onclick="saveSettings()">Simpan Pengaturan</button> <button onclick="clearAll()">Reset Semua Data</button></div>
 <div class="panel"><h3>Login Admin</h3><p class="muted">Ganti username dan password yang dipakai untuk masuk ke aplikasi ini.</p><div class="grid3"><div><label>Username Baru</label><input id="authUser"></div><div><label>Password Baru</label><input id="authPass" type="password" autocomplete="off"></div><div><label>Ulangi Password</label><input id="authPass2" type="password" autocomplete="off"></div></div><br><button class="primary" onclick="saveAuth()">Simpan Login</button><div id="authMsg" class="muted" style="margin-top:8px"></div></div></section>
 </main></div>
 </div>
@@ -361,7 +391,7 @@ if(document.getElementById("rMonth")&&!rMonth.value) rMonth.value=new Date().toI
 fillYearSelect();
 if(document.getElementById("reportTahunView")&&reportTahunView.style.display!=="none"){renderReportYear()}else{renderReport()}
 recent.innerHTML=db.transactions.slice(-8).reverse().map(x=>`<p><b>${x.date}</b> — ${esc(x.customer)} — ${esc(x.service)} — ${rupiah(x.inc-x.out)}</p>`).join("")||"<p>Belum ada transaksi.</p>";
-appName.textContent=(db.settings.name||"BIRO JASA")+" — KEUANGAN";sName.value=db.settings.name;sOwner.value=db.settings.owner;sPhone.value=db.settings.phone;sAddress.value=db.settings.address;fillCustomers();fillServices();renderLogo()}
+appName.textContent=(db.settings.name||"BIRO JASA")+" — KEUANGAN";sName.value=db.settings.name||"";sOwner.value=db.settings.owner||"";sPhone.value=db.settings.phone||"";sAddress.value=db.settings.address||"";sEmail.value=db.settings.email||"";sWebsite.value=db.settings.website||"";sTaxId.value=db.settings.taxId||"";sBankName.value=db.settings.bankName||"";sBankAccount.value=db.settings.bankAccount||"";sBankAccountName.value=db.settings.bankAccountName||"";fillCustomers();fillServices();renderLogo()}
 function renderLogo(){
   const logo=currentLogo;
   [document.getElementById("logoImg"),document.getElementById("logoPreview")].forEach(img=>{
@@ -400,7 +430,7 @@ function removeLogo(){
     logoMsg.textContent="Gagal menghapus logo di server.";logoMsg.style.color="#b91c1c";
   });
 }
-function saveSettings(){db.settings={...db.settings,name:sName.value,owner:sOwner.value,phone:sPhone.value,address:sAddress.value};save();alert("Pengaturan tersimpan")}
+function saveSettings(){db.settings={...db.settings,name:sName.value,owner:sOwner.value,phone:sPhone.value,address:sAddress.value,email:sEmail.value,website:sWebsite.value,taxId:sTaxId.value,bankName:sBankName.value,bankAccount:sBankAccount.value,bankAccountName:sBankAccountName.value};save();alert("Pengaturan tersimpan")}
 function addWithdrawal(){let amount=+wAmount.value||0;let inc=db.transactions.reduce((a,x)=>a+x.inc,0),out=db.transactions.reduce((a,x)=>a+x.out,0),available=(inc-out)*.3-db.withdrawals.reduce((a,x)=>a+x.amount,0);if(amount<=0){alert("Jumlah pengambilan harus lebih dari 0");return}if(amount>available){alert("Pengambilan melebihi saldo pribadi 30% yang tersedia.");return}db.withdrawals.push({id:Date.now(),date:wDate.value||new Date().toISOString().slice(0,10),amount,note:wNote.value});wAmount.value=0;wNote.value="";save();alert("Pengambilan pribadi tersimpan")}
 function delWithdrawal(id){if(confirm("Hapus catatan pengambilan?")){db.withdrawals=db.withdrawals.filter(x=>x.id!=id);save()}}
 function renderReport(){if(!document.getElementById("reportTable"))return;let m=rMonth.value||"", type=rType.value;let rows=db.transactions.filter(x=>!m||x.date.startsWith(m)).filter(x=>type==="income"?x.inc>0:type==="expense"?x.out>0:true);let inc=rows.reduce((a,x)=>a+x.inc,0),out=rows.reduce((a,x)=>a+x.out,0),p=inc-out;reportSummary.innerHTML=`<p><b>Periode:</b> ${m||"Semua periode"} &nbsp; | &nbsp; <b>Pemasukan:</b> ${rupiah(inc)} &nbsp; | &nbsp; <b>Pengeluaran:</b> ${rupiah(out)} &nbsp; | &nbsp; <b>Profit:</b> ${rupiah(p)}</p><p><b>Perusahaan 70%:</b> ${rupiah(p*.7)} &nbsp; | &nbsp; <b>Pribadi 30%:</b> ${rupiah(p*.3)}</p>`;reportTable.innerHTML=rows.map(x=>{let p=x.inc-x.out;return `<tr><td>${x.date}</td><td>${esc(x.plate)}</td><td>${esc(x.customer)}</td><td>${esc(x.service)}</td><td>${rupiah(x.inc)}</td><td>${rupiah(x.out)}</td><td>${rupiah(p)}</td><td>${rupiah(p*.7)}</td><td>${rupiah(p*.3)}</td><td>${esc(x.status)}</td></tr>`}).join("")||`<tr><td colspan="10">Tidak ada transaksi pada periode tersebut.</td></tr>`;
@@ -491,10 +521,34 @@ function makeInvoice(){
   let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10);
   let from=iFrom.value, to=iTo.value;
   let rows=db.transactions.filter(x=>x.customer===c.name&&x.plate===c.plate).filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
-  let logoTag=currentLogo?`<img src="${currentLogo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";
+  let logoTag=currentLogo?`<img src="${currentLogo}">`:"";
   let total=rows.reduce((a,x)=>a+x.inc,0);
-  let rowsHtml=rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.service)}</td><td>${esc(x.plate)}</td><td>${rupiah(x.inc)}</td></tr>`).join("")||`<tr><td colspan="4">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
-  invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}${from||to?`<br><b>Periode:</b> ${from||"awal"} s/d ${to||"sekarang"}`:""}</p><p><b>Customer:</b> ${esc(c.name)}<br><b>Kontak:</b> ${esc(c.phone)}<br><b>Nopol:</b> ${esc(c.plate)}</p><table><tr><th>Tanggal</th><th>Layanan</th><th>Nopol</th><th>Jumlah</th></tr>${rowsHtml}</table><p class="invoice-total">TOTAL: ${rupiah(total)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`;
+  let saldo=rows.filter(x=>x.status!=="Lunas").reduce((a,x)=>a+x.inc,0);
+  let itemsHtml=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num">${rupiah(x.inc)}</td><td class="num">${rupiah(x.inc)}</td></tr>`).join("")||`<tr><td colspan="5">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
+  let notesHtml=rows.filter(x=>x.note).map(x=>esc(x.note)).join("<br>")||"-";
+  let bankBox=(db.settings.bankName||db.settings.bankAccount)?`<div class="inv-bank"><b>Detail perbankan</b>${esc(db.settings.bankName||"")}<br>${esc(db.settings.bankAccount||"")}<br>${esc(db.settings.bankAccountName||db.settings.name||"")}</div>`:"";
+  invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">
+    <div class="inv-header">${logoTag}<div><div class="biz-name">${esc(db.settings.name)}</div><div class="biz-details">${esc(db.settings.address)}<br>${esc(db.settings.phone)}${db.settings.email?"<br>"+esc(db.settings.email):""}${db.settings.website?"<br>"+esc(db.settings.website):""}${db.settings.taxId?"<br>Id pajak : "+esc(db.settings.taxId):""}</div></div></div>
+    <div class="inv-title">FAKTUR</div>
+    <div class="inv-parties">
+      <div class="party"><b>Bayaran Ke</b>${esc(c.name)}<br>${esc(c.phone)}</div>
+      <div class="party"><b>Dikirim Ke</b>${esc(c.name)}<br>${esc(c.phone)}</div>
+      <div class="meta"><div class="inv-no">${esc(no)}</div><div class="inv-date">${date}</div></div>
+    </div>
+    <table class="inv-items"><thead><tr><th>Nomor</th><th>Produk</th><th class="num">Qty</th><th class="num">Menilai</th><th class="num">Jumlah</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <div class="inv-bottom">
+      <div class="inv-notes"><b>Harap Dicatat</b>${notesHtml}</div>
+      <div class="inv-totals">
+        <div class="row"><span>Total</span><span>${rupiah(total)}</span></div>
+        <div class="row highlight"><span>Total keseluruhan</span><span>${rupiah(total)}</span></div>
+        <div class="row"><span>Saldo</span><span>${rupiah(saldo)}</span></div>
+      </div>
+    </div>
+    <div class="inv-sign"><div class="sign-space"></div>${esc(db.settings.owner)}<br>Tanda Tangan</div>
+    ${bankBox}
+    <p style="margin-top:16px">Terima kasih telah menggunakan jasa kami.</p>
+    <button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+  </div>`;
 }
 tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});
 tDate.value=new Date().toISOString().slice(0,10);iDate.value=new Date().toISOString().slice(0,10);
