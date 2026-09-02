@@ -121,8 +121,8 @@ h2{margin-top:0} @media(max-width:900px){.cards{grid-template-columns:repeat(2,1
 </section>
 
 <section id="invoice" class="page"><h2>Invoice</h2>
-<div class="panel no-print"><div class="grid3"><div><label>No. Invoice</label><input id="iNo" value="INV-001"></div><div><label>Tanggal</label><input id="iDate" type="date"></div><div><label>Customer</label><select id="iCustomer"></select></div>
-<div><label>Nopol</label><input id="iPlate"></div><div><label>Layanan</label><select id="iService"></select></div><div><label>Nominal</label><input id="iAmount" type="number" value="0"></div></div><br><button class="primary" onclick="makeInvoice()">Tampilkan Invoice</button></div>
+<div class="panel no-print"><div class="grid3"><div><label>No. Invoice</label><input id="iNo" value="INV-001"></div><div><label>Tanggal Terbit</label><input id="iDate" type="date"></div><div><label>Customer</label><select id="iCustomer"></select></div>
+<div><label>Dari Tanggal (opsional)</label><input id="iFrom" type="date"></div><div><label>Sampai Tanggal (opsional)</label><input id="iTo" type="date"></div><div><label>&nbsp;</label></div></div><p class="muted">Kosongkan "Dari/Sampai Tanggal" untuk menampilkan SEMUA transaksi customer ini. Isi keduanya untuk membatasi ke periode tertentu.</p><br><button class="primary" onclick="makeInvoice()">Tampilkan Invoice</button></div>
 <div id="invoiceArea"></div>
 </section>
 
@@ -289,7 +289,7 @@ function save(){
   DOC_REF.set(db).then(()=>setSyncStatus(navigator.onLine?"synced":"offline")).catch(err=>{console.error(err);setSyncStatus("error")});
 }
 function show(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn?.classList.add("active");render();}
-function fillServices(){["tService","iService"].forEach(id=>document.getElementById(id).innerHTML=services.map(x=>`<option>${x}</option>`).join(""))}
+function fillServices(){document.getElementById("tService").innerHTML=services.map(x=>`<option>${x}</option>`).join("")}
 function fillCustomers(){let opts='<option value="">-- pilih customer --</option>'+db.customers.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.plate)}</option>`).join("");["tCustomer","iCustomer"].forEach(id=>document.getElementById(id).innerHTML=opts)}
 function addCustomer(){let c={id:Date.now(),name:cName.value.trim(),phone:cPhone.value.trim(),plate:cPlate.value.trim().toUpperCase(),vehicle:cVehicle.value,tax:cTax.value,note:cNote.value};if(!c.name||!c.plate){alert("Nama dan Nopol wajib diisi");return}db.customers.push(c);["cName","cPhone","cPlate","cTax","cNote"].forEach(id=>document.getElementById(id).value="");save()}
 function delCustomer(id){if(confirm("Hapus customer?")){db.customers=db.customers.filter(c=>c.id!=id);save()}}
@@ -485,8 +485,18 @@ function drawProfitChart(canvasId,key,labels,incData,outData,profitData){
   });
 }
 
-function makeInvoice(){let c=db.customers.find(c=>c.id==iCustomer.value);let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10), amount=+iAmount.value;let logoTag=currentLogo?`<img src="${currentLogo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}</p><p><b>Customer:</b> ${esc(c?.name||"")}<br><b>Kontak:</b> ${esc(c?.phone||"")}<br><b>Nopol:</b> ${esc(iPlate.value||c?.plate||"")}</p><table><tr><th>Layanan</th><th>Jumlah</th></tr><tr><td>${esc(iService.value)}</td><td>${rupiah(amount)}</td></tr></table><p class="invoice-total">TOTAL: ${rupiah(amount)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`}
-tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});iCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==iCustomer.value);iPlate.value=c?.plate||""});
+function makeInvoice(){
+  let c=db.customers.find(c=>c.id==iCustomer.value);
+  if(!c){alert("Pilih customer");return}
+  let no=iNo.value||"INV-001", date=iDate.value||new Date().toISOString().slice(0,10);
+  let from=iFrom.value, to=iTo.value;
+  let rows=db.transactions.filter(x=>x.customer===c.name&&x.plate===c.plate).filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
+  let logoTag=currentLogo?`<img src="${currentLogo}" style="height:60px;width:60px;object-fit:cover;border-radius:8px;display:block;margin:0 auto 10px">`:"";
+  let total=rows.reduce((a,x)=>a+x.inc,0);
+  let rowsHtml=rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.service)}</td><td>${esc(x.plate)}</td><td>${rupiah(x.inc)}</td></tr>`).join("")||`<tr><td colspan="4">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
+  invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">${logoTag}<h2>INVOICE</h2><hr><p><b>${esc(db.settings.name)}</b><br>${esc(db.settings.address)}<br>WhatsApp: ${esc(db.settings.phone)}</p><p><b>No:</b> ${esc(no)}<br><b>Tanggal:</b> ${date}${from||to?`<br><b>Periode:</b> ${from||"awal"} s/d ${to||"sekarang"}`:""}</p><p><b>Customer:</b> ${esc(c.name)}<br><b>Kontak:</b> ${esc(c.phone)}<br><b>Nopol:</b> ${esc(c.plate)}</p><table><tr><th>Tanggal</th><th>Layanan</th><th>Nopol</th><th>Jumlah</th></tr>${rowsHtml}</table><p class="invoice-total">TOTAL: ${rupiah(total)}</p><p>Terima kasih telah menggunakan jasa kami.</p><p><br>${esc(db.settings.owner)}</p><button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button></div>`;
+}
+tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});
 tDate.value=new Date().toISOString().slice(0,10);iDate.value=new Date().toISOString().slice(0,10);
 function clearAll(){if(confirm("Hapus SEMUA data aplikasi & login? Password akan kembali ke default. Ini akan menghapus data di SEMUA perangkat yang terhubung.")){
   localStorage.removeItem("biroJasaDB_cache");
