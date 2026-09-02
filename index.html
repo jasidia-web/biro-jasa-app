@@ -48,6 +48,8 @@ table.inv-items th{background:#1d4ed8;color:#fff;text-align:left;padding:8px 10p
 table.inv-items td{padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:13.5px;vertical-align:top}
 table.inv-items .item-sub{display:block;color:#6b7280;font-size:12px;margin-top:2px}
 table.inv-items td.num,table.inv-items th.num{text-align:right}
+.inv-input{width:100px;text-align:right;border:1px solid #d1d5db;border-radius:4px;padding:3px 6px;font:inherit;background:#fffbeb}
+@media print{.inv-input{border:none;background:none;padding:0;width:auto;-webkit-appearance:none}}
 .inv-bottom{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px}
 .inv-notes{flex:1;min-width:220px;border:1px solid #d1d5db;border-radius:6px;padding:10px 14px;font-size:13px;color:#374151}
 .inv-notes b{display:block;margin-bottom:6px}
@@ -149,7 +151,13 @@ table.inv-items td.num,table.inv-items th.num{text-align:right}
 
 <section id="invoice" class="page"><h2>Invoice</h2>
 <div class="panel no-print"><div class="grid3"><div><label>No. Invoice</label><input id="iNo" value="INV-001"></div><div><label>Tanggal Terbit</label><input id="iDate" type="date"></div><div><label>Customer</label><select id="iCustomer"></select></div>
-<div><label>Dari Tanggal (opsional)</label><input id="iFrom" type="date"></div><div><label>Sampai Tanggal (opsional)</label><input id="iTo" type="date"></div><div><label>&nbsp;</label></div></div><p class="muted">Kosongkan "Dari/Sampai Tanggal" untuk menampilkan SEMUA transaksi customer ini. Isi keduanya untuk membatasi ke periode tertentu.</p><br><button class="primary" onclick="makeInvoice()">Tampilkan Invoice</button></div>
+<div><label>Dari Tanggal (opsional)</label><input id="iFrom" type="date"></div><div><label>Sampai Tanggal (opsional)</label><input id="iTo" type="date"></div><div><label>&nbsp;</label></div></div><p class="muted">Kosongkan "Dari/Sampai Tanggal" untuk menampilkan SEMUA transaksi customer ini. Isi keduanya untuk membatasi ke periode tertentu.</p>
+<h3 style="margin-top:16px">Item Manual / Estimasi (opsional)</h3>
+<p class="muted">Untuk item yang belum pasti, misal "Pajak 5 Tahun (Estimasi)" — nominalnya bisa diketik manual di sini, dan tetap bisa dikoreksi lagi langsung di preview invoice sebelum dicetak.</p>
+<div class="grid3"><div><label>Nama Item</label><input id="miName" placeholder="Contoh: Estimasi Pajak 5 Tahun"></div><div><label>Nominal</label><input id="miAmount" type="number" value="0"></div><div><label>&nbsp;</label><label style="display:flex;align-items:center;gap:6px;font-weight:normal;margin-top:8px"><input type="checkbox" id="miEstimasi" checked style="width:auto"> Tandai sebagai Estimasi</label></div></div>
+<button onclick="addManualInvoiceItem()">+ Tambah Item</button>
+<div id="manualItemsList" style="margin-top:10px"></div>
+<br><button class="primary" onclick="makeInvoice()">Tampilkan Invoice</button></div>
 <div id="invoiceArea"></div>
 </section>
 
@@ -515,6 +523,23 @@ function drawProfitChart(canvasId,key,labels,incData,outData,profitData){
   });
 }
 
+let manualInvoiceItems=[];
+function addManualInvoiceItem(){
+  let name=miName.value.trim();
+  let amount=+miAmount.value;
+  if(!name){alert("Isi nama item dulu");return}
+  manualInvoiceItems.push({name,amount,estimasi:miEstimasi.checked});
+  miName.value="";miAmount.value=0;miEstimasi.checked=true;
+  renderManualItemsList();
+}
+function removeManualInvoiceItem(idx){
+  manualInvoiceItems.splice(idx,1);
+  renderManualItemsList();
+}
+function renderManualItemsList(){
+  if(!document.getElementById("manualItemsList"))return;
+  manualItemsList.innerHTML=manualInvoiceItems.map((m,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f8fafc;border-radius:6px;margin-bottom:4px"><span>${esc(m.name)}${m.estimasi?" <i>(Estimasi)</i>":""} — ${rupiah(m.amount)}</span><button onclick="removeManualInvoiceItem(${i})" style="padding:3px 10px">Hapus</button></div>`).join("")||"";
+}
 function makeInvoice(){
   let c=db.customers.find(c=>c.id==iCustomer.value);
   if(!c){alert("Pilih customer");return}
@@ -522,9 +547,9 @@ function makeInvoice(){
   let from=iFrom.value, to=iTo.value;
   let rows=db.transactions.filter(x=>x.customer===c.name&&x.plate===c.plate).filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
   let logoTag=currentLogo?`<img src="${currentLogo}">`:"";
-  let total=rows.reduce((a,x)=>a+x.inc,0);
-  let saldo=rows.filter(x=>x.status!=="Lunas").reduce((a,x)=>a+x.inc,0);
-  let itemsHtml=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num">${rupiah(x.inc)}</td><td class="num">${rupiah(x.inc)}</td></tr>`).join("")||`<tr><td colspan="5">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
+  let autoRows=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${x.inc}" oninput="syncInvoiceRow(this)"></td><td class="num"><span class="jumlah-display">${rupiah(x.inc)}</span></td></tr>`).join("");
+  let manualRows=manualInvoiceItems.map(m=>`<tr><td>—</td><td>${esc(m.name)}${m.estimasi?' <span class="item-sub" style="display:inline;color:#b45309">(Estimasi — bisa dikoreksi di kolom Menilai)</span>':""}</td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${m.amount}" oninput="syncInvoiceRow(this)"></td><td class="num"><span class="jumlah-display">${rupiah(m.amount)}</span></td></tr>`).join("");
+  let itemsHtml=(autoRows+manualRows)||`<tr><td colspan="5">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
   let notesHtml=rows.filter(x=>x.note).map(x=>esc(x.note)).join("<br>")||"-";
   let bankBox=(db.settings.bankName||db.settings.bankAccount)?`<div class="inv-bank"><b>Detail perbankan</b>${esc(db.settings.bankName||"")}<br>${esc(db.settings.bankAccount||"")}<br>${esc(db.settings.bankAccountName||db.settings.name||"")}</div>`:"";
   invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">
@@ -536,12 +561,13 @@ function makeInvoice(){
       <div class="meta"><div class="inv-no">${esc(no)}</div><div class="inv-date">${date}</div></div>
     </div>
     <table class="inv-items"><thead><tr><th>Nomor</th><th>Produk</th><th class="num">Qty</th><th class="num">Menilai</th><th class="num">Jumlah</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <p class="muted no-print">Kolom "Menilai" bisa diklik dan diedit langsung kalau nominalnya masih estimasi — total di bawah akan otomatis terhitung ulang.</p>
     <div class="inv-bottom">
       <div class="inv-notes"><b>Harap Dicatat</b>${notesHtml}</div>
-      <div class="inv-totals">
-        <div class="row"><span>Total</span><span>${rupiah(total)}</span></div>
-        <div class="row highlight"><span>Total keseluruhan</span><span>${rupiah(total)}</span></div>
-        <div class="row"><span>Saldo</span><span>${rupiah(saldo)}</span></div>
+      <div class="inv-totals" id="invTotalsBlock">
+        <div class="row" id="invRowTotal"><span>Total</span><span></span></div>
+        <div class="row highlight" id="invRowTotalAll"><span>Total keseluruhan</span><span></span></div>
+        <div class="row" id="invRowSaldo"><span>Saldo</span><span></span></div>
       </div>
     </div>
     <div class="inv-sign"><div class="sign-space"></div>${esc(db.settings.owner)}<br>Tanda Tangan</div>
@@ -549,6 +575,21 @@ function makeInvoice(){
     <p style="margin-top:16px">Terima kasih telah menggunakan jasa kami.</p>
     <button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
   </div>`;
+  recalcInvoiceTotal();
+}
+function syncInvoiceRow(el){
+  let val=parseFloat(el.value)||0;
+  let jumlahEl=el.closest("tr").querySelector(".jumlah-display");
+  jumlahEl.textContent=rupiah(val);
+  recalcInvoiceTotal();
+}
+function recalcInvoiceTotal(){
+  let total=0;
+  document.querySelectorAll("#printInvoice .inv-input").forEach(inp=>{total+=parseFloat(inp.value)||0});
+  ["invRowTotal","invRowTotalAll","invRowSaldo"].forEach(id=>{
+    let el=document.getElementById(id);
+    if(el) el.querySelector("span:last-child").textContent=rupiah(total);
+  });
 }
 tCustomer.addEventListener("change",()=>{let c=db.customers.find(c=>c.id==tCustomer.value);tPlate.value=c?.plate||""});
 tDate.value=new Date().toISOString().slice(0,10);iDate.value=new Date().toISOString().slice(0,10);
