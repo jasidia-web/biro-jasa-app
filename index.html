@@ -52,6 +52,8 @@ table.inv-items td.num,table.inv-items th.num{text-align:right}
 @media print{.inv-input{border:none;background:none;padding:0;width:auto;-webkit-appearance:none}}
 .inv-bottom{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px}
 .inv-notes{flex:1;min-width:220px;border:1px solid #d1d5db;border-radius:6px;padding:10px 14px;font-size:13px;color:#374151}
+.inv-notes-textarea{width:100%;min-height:70px;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;color:#374151;resize:vertical;margin-top:4px}
+@media print{.inv-notes-textarea{border:none;padding:0;resize:none}}
 .inv-notes b{display:block;margin-bottom:6px}
 .inv-totals{min-width:260px;font-size:14px}
 .inv-totals .row{display:flex;justify-content:space-between;padding:6px 10px}
@@ -547,10 +549,10 @@ function makeInvoice(){
   let from=iFrom.value, to=iTo.value;
   let rows=db.transactions.filter(x=>x.customer===c.name&&x.plate===c.plate).filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
   let logoTag=currentLogo?`<img src="${currentLogo}">`:"";
-  let autoRows=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${x.inc}" oninput="syncInvoiceRow(this)"></td><td class="num"><span class="jumlah-display">${rupiah(x.inc)}</span></td></tr>`).join("");
-  let manualRows=manualInvoiceItems.map(m=>`<tr><td>—</td><td>${esc(m.name)}${m.estimasi?' <span class="item-sub" style="display:inline;color:#b45309">(Estimasi — bisa dikoreksi di kolom Menilai)</span>':""}</td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${m.amount}" oninput="syncInvoiceRow(this)"></td><td class="num"><span class="jumlah-display">${rupiah(m.amount)}</span></td></tr>`).join("");
-  let itemsHtml=(autoRows+manualRows)||`<tr><td colspan="5">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
-  let notesHtml=rows.filter(x=>x.note).map(x=>esc(x.note)).join("<br>")||"-";
+  let autoRows=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${x.inc}" oninput="recalcInvoiceTotal()"></td></tr>`).join("");
+  let manualRows=manualInvoiceItems.map(m=>`<tr><td>—</td><td>${esc(m.name)}${m.estimasi?' <span class="item-sub" style="display:inline;color:#b45309">(Estimasi — bisa dikoreksi di kolom Jumlah)</span>':""}</td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${m.amount}" oninput="recalcInvoiceTotal()"></td></tr>`).join("");
+  let itemsHtml=(autoRows+manualRows)||`<tr><td colspan="4">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
+  let notesHtml=rows.filter(x=>x.note).map(x=>x.note).join("\n");
   let bankBox=(db.settings.bankName||db.settings.bankAccount)?`<div class="inv-bank"><b>Detail perbankan</b>${esc(db.settings.bankName||"")}<br>${esc(db.settings.bankAccount||"")}<br>${esc(db.settings.bankAccountName||db.settings.name||"")}</div>`:"";
   invoiceArea.innerHTML=`<div class="invoice" id="printInvoice">
     <div class="inv-header">${logoTag}<div><div class="biz-name">${esc(db.settings.name)}</div><div class="biz-details">${esc(db.settings.address)}<br>${esc(db.settings.phone)}${db.settings.email?"<br>"+esc(db.settings.email):""}${db.settings.website?"<br>"+esc(db.settings.website):""}${db.settings.taxId?"<br>Id pajak : "+esc(db.settings.taxId):""}</div></div></div>
@@ -560,10 +562,10 @@ function makeInvoice(){
       <div class="party"><b>Dikirim Ke</b>${esc(c.name)}<br>${esc(c.phone)}</div>
       <div class="meta"><div class="inv-no">${esc(no)}</div><div class="inv-date">${date}</div></div>
     </div>
-    <table class="inv-items"><thead><tr><th>Nomor</th><th>Produk</th><th class="num">Qty</th><th class="num">Menilai</th><th class="num">Jumlah</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-    <p class="muted no-print">Kolom "Menilai" bisa diklik dan diedit langsung kalau nominalnya masih estimasi — total di bawah akan otomatis terhitung ulang.</p>
+    <table class="inv-items"><thead><tr><th>Nomor</th><th>Produk</th><th class="num">Qty</th><th class="num">Jumlah</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+    <p class="muted no-print">Kolom "Jumlah" bisa diklik dan diedit langsung kalau nominalnya masih estimasi — total di bawah akan otomatis terhitung ulang.</p>
     <div class="inv-bottom">
-      <div class="inv-notes"><b>Harap Dicatat</b>${notesHtml}</div>
+      <div class="inv-notes"><b>Harap Dicatat</b><textarea id="invNotesBox" class="inv-notes-textarea">${esc(notesHtml)}</textarea></div>
       <div class="inv-totals" id="invTotalsBlock">
         <div class="row" id="invRowTotal"><span>Total</span><span></span></div>
         <div class="row highlight" id="invRowTotalAll"><span>Total keseluruhan</span><span></span></div>
@@ -575,12 +577,6 @@ function makeInvoice(){
     <p style="margin-top:16px">Terima kasih telah menggunakan jasa kami.</p>
     <button class="primary no-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
   </div>`;
-  recalcInvoiceTotal();
-}
-function syncInvoiceRow(el){
-  let val=parseFloat(el.value)||0;
-  let jumlahEl=el.closest("tr").querySelector(".jumlah-display");
-  jumlahEl.textContent=rupiah(val);
   recalcInvoiceTotal();
 }
 function recalcInvoiceTotal(){
