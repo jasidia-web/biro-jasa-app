@@ -53,6 +53,7 @@ table.inv-items td.num,table.inv-items th.num{text-align:right}
 .inv-bottom{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px}
 .inv-notes{flex:1;min-width:220px;border:1px solid #d1d5db;border-radius:6px;padding:10px 14px;font-size:13px;color:#374151}
 .inv-notes-textarea{width:100%;min-height:70px;border:1px solid #e5e7eb;border-radius:4px;padding:6px 8px;font:inherit;font-size:13px;color:#374151;resize:vertical;margin-top:4px}
+.inv-estimasi-badge{display:inline-block;font-size:11px;color:#b45309;background:#fef3c7;padding:1px 7px;border-radius:10px;margin-left:6px}
 @media print{.inv-notes-textarea{border:none;padding:0;resize:none}}
 .inv-notes b{display:block;margin-bottom:6px}
 .inv-totals{min-width:260px;font-size:14px}
@@ -550,7 +551,7 @@ function makeInvoice(){
   let rows=db.transactions.filter(x=>x.customer===c.name&&x.plate===c.plate).filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)).sort((a,b)=>a.date.localeCompare(b.date));
   let logoTag=currentLogo?`<img src="${currentLogo}">`:"";
   let autoRows=rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.service)}<span class="item-sub">${esc(x.plate)}${x.note?" — "+esc(x.note):""} · ${x.date}</span></td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${x.inc}" oninput="recalcInvoiceTotal()"></td></tr>`).join("");
-  let manualRows=manualInvoiceItems.map(m=>`<tr><td>—</td><td>${esc(m.name)}${m.estimasi?' <span class="item-sub" style="display:inline;color:#b45309">(Estimasi — bisa dikoreksi di kolom Jumlah)</span>':""}</td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${m.amount}" oninput="recalcInvoiceTotal()"></td></tr>`).join("");
+  let manualRows=manualInvoiceItems.map(m=>`<tr><td>—</td><td>${esc(m.name)}${m.estimasi?' <span class="inv-estimasi-badge no-print">Estimasi</span>':""}</td><td class="num">1</td><td class="num"><input type="number" class="inv-input" value="${m.amount}" oninput="recalcInvoiceTotal()"></td></tr>`).join("");
   let itemsHtml=(autoRows+manualRows)||`<tr><td colspan="4">Tidak ada transaksi untuk customer ini pada periode tersebut.</td></tr>`;
   let notesHtml=rows.filter(x=>x.note).map(x=>x.note).join("\n");
   let bankBox=(db.settings.bankName||db.settings.bankAccount)?`<div class="inv-bank"><b>Detail perbankan</b>${esc(db.settings.bankName||"")}<br>${esc(db.settings.bankAccount||"")}<br>${esc(db.settings.bankAccountName||db.settings.name||"")}</div>`:"";
